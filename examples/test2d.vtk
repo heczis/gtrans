@@ -1,0 +1,43 @@
+# vtk DataFile Version 5.1
+written by meshio v5.3.4
+ASCII
+DATASET UNSTRUCTURED_GRID
+POINTS 9 vtktypeint64
+-15 -15 0 0 -15 0 15 -15 0 -15 0 0 0 0 0 15 0 0 -15 15 0 0 15 0 15 15 0
+CELLS 6 18
+OFFSETS vtktypeint64
+0
+4
+8
+12
+15
+18
+CONNECTIVITY vtktypeint64
+0
+1
+4
+3
+1
+2
+5
+4
+3
+4
+7
+6
+4
+5
+7
+5
+8
+7
+CELL_TYPES 5
+9
+9
+9
+5
+5
+POINT_DATA 9
+FIELD FieldData 1
+displacement 3 9 vtktypeint64
+2 5 0 0 0 0 5 0 0 0 1 0 0 0 0 2 -1 0 0 3 0 0 3 0 -2 7 0
