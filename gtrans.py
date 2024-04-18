@@ -30,22 +30,23 @@ def transform_gcode(gcode_in, mesh_in):
         extrusion, length = move.get_extrusion(), move.get_length()
 
         if (extrusion <= 0) or (length <= 0):
-            new_move = move.transform(displacement_fun)
-            gcode_out.instructions.append(
-                gcode.Instruction.from_str(
-                    str(new_move),
-                    new_move.get_coors(0))
-            )
+            new_moves = move.transform(displacement_fun)
+            for new_move in new_moves:
+                gcode_out.instructions.append(
+                    gcode.Instruction.from_str(
+                        str(new_move),
+                        new_move.get_coors(0))
+                )
             continue
 
         lbds = mesh_in.get_intersections_with_edges(
             np.array([move.get_coors(0), move.get_coors(1)])
         )
         lbds.sort(reverse=True)
-        new_moves = [
+        new_moves = sum([
             mv.transform(displacement_fun)
             for mv in move.split([1 - lbd for lbd in lbds])
-        ]
+        ], [])
 
         for mv in new_moves:
             start_coors = gcode_out.get_last_coors()

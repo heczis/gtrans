@@ -88,7 +88,10 @@ class Move:
     def get_length(self):
         return np.linalg.norm(self.get_coors(1) - self.get_coors(0))
 
-    def transform(self, displacement_fun):
+    def transform(
+            self, displacement_fun, split_threshold=5e-1, split_par=.5,
+            max_splits=2,
+    ):
         """
         Return a Move instance transformed by `displacement_fun`.
 
@@ -134,7 +137,23 @@ class Move:
                 new_args.update({arg_name : val})
 
         out = Move(self.name, new_args, start_coors=start_coors_trasformed)
-        return out
+
+        if (split_threshold <= 0) or (max_splits <= 0):
+            return [out]
+
+        if np.linalg.norm(
+                out.get_coors(split_par)
+                -displacement_fun(self.get_coors(split_par))
+        ) > split_threshold:
+            new_moves = self.split([split_par])
+            out = sum([
+                mv.transform(
+                    displacement_fun, split_threshold, split_par,
+                    max_splits - 1)
+                for mv in new_moves], [])
+            return out
+        else:
+            return [out]
 
     def transform_extrusion(
             self, extrusion_fun, split_threshold=1+1e-2, split_par=.5,
