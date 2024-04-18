@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.optimize as sopt
 
+import geo
+
 class Element:
     """
     Base class for different types of mesh elements
@@ -148,10 +150,14 @@ class Quad(Element):
         )
         return result.x
 
-    def is_inside(self, coors, tol=1e-4):
-        iso_coors = self.get_iso_coors(coors)
-
-        return all((iso_coors >= -tol) * (iso_coors <= 1 + tol))
+    def is_inside(self, coors):
+        return all([
+            geo.is_in_half_plane_by_pts_2d(nc1[:2], nc2[:2], coors[:2])
+            for nc1, nc2 in zip(
+                    self.node_coors[[0, 3, 2, 1]],
+                    self.node_coors[[3, 2, 1, 0]],
+            )
+        ])
 
 class Hexa(Element):
     """
