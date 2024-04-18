@@ -13,6 +13,7 @@ import femfun
 def transform_gcode(
         gcode_in, mesh_in,
         output_count=25,
+        n_lines=None,
         do_plots=False
 ):
     gcode_out = gcode.GCode([])
@@ -26,7 +27,10 @@ def transform_gcode(
         else:
             return coors + displacement
 
-    for instruction in gcode_in.instructions:
+    if n_lines is None:
+        n_lines = len(gcode_in.instructions)
+
+    for ii, instruction in enumerate(gcode_in.instructions[:n_lines]):
         if output_count:
             if (ii % output_count) == 0:
                 print(f'[{ii}/{n_lines}]')
@@ -116,11 +120,18 @@ def parse_args():
         '[default: %(default)s]',
     )
 
+    parser.add_argument(
+        '--n-lines', metavar='N_LINES', dest='n_lines', default=None,
+        type=int, nargs='?',
+        help='Number of gcode lines to process (might be useful for debugging).'
+        ' If not given, all gcode is processed.',
+    )
+
     return parser.parse_args()
 
 def main(
         gcode_in_filename, mesh_in_filename, gcode_out_filename,
-        mesh_offset,
+        mesh_offset, n_lines=None,
 ):
     gcode_in = gcode.GCode.from_file(gcode_in_filename)
     mesh_in = femfun.Mesh.from_file(
@@ -132,7 +143,7 @@ def main(
     mesh_in.plot('k', ax=ax_orig, linewidth=.5)
     gcode_in.plot('.-', ax=ax_orig)
 
-    gcode_out = transform_gcode(gcode_in, mesh_in)
+    gcode_out = transform_gcode(gcode_in, mesh_in, n_lines=n_lines)
 
     gcode_out.save_as(gcode_out_filename)
 
@@ -148,5 +159,5 @@ if __name__ == '__main__':
     cli_args = parse_args()
     main(
         cli_args.gcode_in, cli_args.mesh_in, cli_args.gcode_out,
-        cli_args.offset,
+        cli_args.offset, n_lines=cli_args.n_lines,
     )
