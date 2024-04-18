@@ -138,7 +138,7 @@ def main(
         mesh_in_filename, offset=mesh_offset,
     )
 
-    _, (ax_orig, ax_after) = plt.subplots(ncols=2, sharey=True)
+    _, (ax_orig, ax_after) = plt.subplots(nrows=2, sharex=True)
     ax_orig.axis('equal')
     mesh_in.plot('k', ax=ax_orig, linewidth=.5)
     gcode_in.plot('.-', ax=ax_orig)
