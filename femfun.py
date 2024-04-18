@@ -248,6 +248,9 @@ class Mesh:
                     *args, ax=ax, displacement=displacement[elm.node_ids],
                     **kwargs)
 
+    def get_elm_id(self, elm):
+        return self.elements.index(elm)
+
 def create_testing_vtk_2d(file_name='examples/test2d.vtk'):
     points = np.array([
         [-15, -15], [0, -15], [15, -15],
