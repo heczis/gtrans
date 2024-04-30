@@ -1,6 +1,11 @@
+"""
+Tools for creating deformed .stl files and the corresponding .vtk meshes, both
+to be used for slicing and post-processing the resulting gcode.
+"""
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
+import vtk
 
 N_PERIMETERS = 1
 EXTRUSION_WIDTH = 0.45
@@ -26,6 +31,20 @@ class ToleranceList(list):
                 return ii
 
 def plot_mesh(mesh, *args, ax=None, **kwargs):
+    """
+    Plot given mesh
+
+    Parameters:
+    -----------
+
+    mesh : meshio.Mesh
+
+    ax : pyplot.Axes or None
+
+      If `None`, replaced by matplotlib.pyplot
+
+    args, kwargs : passed to `ax.plot` calls
+    """
     if ax is None:
         ax = plt
 
@@ -36,6 +55,24 @@ def plot_mesh(mesh, *args, ax=None, **kwargs):
             ax.plot(node_coors[0], node_coors[1], *args, **kwargs)
 
 def plot_mesh_node_set(mesh, *args, ax=None, node_set=None, **kwargs):
+    """
+    Plot given node set
+
+    Parameters:
+    -----------
+
+    mesh : meshio.Mesh
+
+    ax : pyplot.Axes or None
+
+      If `None`, replaced by matplotlib.pyplot
+
+    node_set : list of ints
+
+      List of node IDs to plot. All nodes are plotted if `None`.
+
+    args, kwargs : passed to `ax.plot` calls
+    """
     if ax is None:
         ax = plt
 
@@ -47,6 +84,25 @@ def plot_mesh_node_set(mesh, *args, ax=None, node_set=None, **kwargs):
         *args, **kwargs)
 
 def plot_mesh_edge_set(mesh, edge_set, *args, ax=None, **kwargs):
+    """
+    Plot given set of edges
+
+    Parameters:
+    -----------
+
+    mesh : meshio.Mesh
+
+    ax : pyplot.Axes or None
+
+      If `None`, replaced by matplotlib.pyplot
+
+    edge_set : list of tuples of ints
+
+      List of edges to plot. Each edge is defined by two node IDs that it
+      connects.
+
+    args, kwargs : passed to `ax.plot` calls
+    """
     if ax is None:
         ax = plt
 
@@ -58,6 +114,11 @@ def plot_mesh_edge_set(mesh, edge_set, *args, ax=None, **kwargs):
     ax.plot(x_vals, y_vals, *args, **kwargs)
 
 def get_outline_points(file_name='ISO_dogbone_2.stl', zero_tol=1e-3):
+    """
+    Return coordinates of points that lie on the contour of a tensile specimen.
+    It is assumed that the shape is planar in the XY-plane and symmetric about
+    the X and Y axis.
+    """
     mesh = meshio.read(file_name)
 
     qpts = mesh.points[
@@ -72,6 +133,10 @@ def get_outline_points(file_name='ISO_dogbone_2.stl', zero_tol=1e-3):
     ])
 
 class EdgeList(list):
+    """
+    List of edges (i.e. tuples of node IDs).
+    Redefines the `__contains__` method and supports search by node ID.
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -89,6 +154,16 @@ class EdgeList(list):
                 return ind
 
 def get_outline_edges(mesh):
+    """
+    Finds edges that lie on the contour of a given 2D mesh.
+    
+    Parameters:
+    -----------
+
+    mesh : meshio.Mesh
+
+      2D is assumed!
+    """
     elm_edges = []
     for cell_block in mesh.cells:
         for elm_nodes in cell_block.data:
@@ -116,6 +191,10 @@ def get_outline_edges(mesh):
 
 def is_clockwise(polygon):
     """
+    Tests for planar polygon orientation. Used in determining the orientation
+    of outward normals and fixing element definition (necessary for finding the
+    iso-coordinates in quad elements).
+    
     Parameters:
     -----------
     
@@ -167,6 +246,15 @@ def get_outer_normals(polygon):
     return normals / np.array([[np.linalg.norm(ni)] for ni in normals])
 
 def create_mesh_from_outline_points(outline_points):
+    """
+    Parameters:
+    -----------
+
+    outline_points : list of coordinates
+
+      Points in the XY-plane, all should lie on a single side from the X-axis,
+      since the other half of the mesh is created by mirroring around X.
+    """
     points, cells = ToleranceList([]), []
     for p1, p2 in zip(outline_points[:-1], outline_points[1:]):
         p3 = p2.dot(np.diag([1, -1, 1]))
@@ -189,7 +277,7 @@ def create_mesh_from_outline_points(outline_points):
 def get_path(edges):
     """
     From a list of edges - list of pairs of node indices - construct a single
-    list of indices that traverse all edges.
+    ordered list of indices that traverse all edges.
     """
     if not isinstance(edges, EdgeList):
         edges = EdgeList(edges)
@@ -245,7 +333,44 @@ def offset_outline(outline_path, offset=-1.35):
 
     return displacements
 
-def main(output_file_name='ISO_dogbone_2.vtk'):
+def convert_to_stl(
+        input_file='beam.vtk', output_file='beam.stl',
+        thickness=1.,
+):
+    """
+    Convert a 2D .vtk to .stl, extrude by given thickness.
+    """
+    reader = vtk.vtkGenericDataObjectReader()
+    reader.SetFileName(input_file)
+    reader.Update()
+
+    geom_filter = vtk.vtkGeometryFilter()
+    geom_filter.SetInputConnection(reader.GetOutputPort())
+    geom_filter.Update()
+
+    polydata = geom_filter.GetOutput()
+
+    extrusion_filter = vtk.vtkLinearExtrusionFilter()
+    extrusion_filter.SetInputData(polydata)
+    extrusion_filter.Update()
+
+    polydata = extrusion_filter.GetOutput()
+
+    writer = vtk.vtkSTLWriter()
+    writer.SetInputData(polydata)
+    writer.SetFileName(output_file)
+
+    writer.Write()
+
+def uniform_defo_fun(coors, def_grad=None):
+    if def_grad is None:
+        def_grad = np.eye(len(coors))
+    return def_grad.dot(coors)
+
+def main(
+        output_vtk_name='ISO_dogbone_2_defo.vtk',
+        output_stl_name='ISO_dogbone_2_defo.stl',
+):
     pts = get_outline_points()
 
     mesh = create_mesh_from_outline_points(pts)
@@ -257,12 +382,21 @@ def main(output_file_name='ISO_dogbone_2.vtk'):
     plot_mesh_edge_set(mesh, outline_edges, 'x--')
 
     path_points = mesh.points[outline_path, :2]
-    offset_points = path_points + offset_outline(
+    inner_points = path_points + offset_outline(
         path_points, offset=-N_PERIMETERS * EXTRUSION_WIDTH)
 
-    n_outline = len(path_points) - 1
+    orig_points = np.vstack([path_points[:-1], inner_points[:-1]])
 
-    out_points = np.vstack([path_points[:-1], offset_points[:-1]])
+    defo_fun = lambda coors: uniform_defo_fun(coors, np.array([[1, 0], [.5, 1]]))
+    inner_points_deformed = np.array([defo_fun(pt) for pt in inner_points])
+    outer_points_deformed = inner_points_deformed + offset_outline(
+        inner_points_deformed, offset=N_PERIMETERS * EXTRUSION_WIDTH)
+
+    n_outline = len(inner_points_deformed) - 1
+
+    out_points = np.vstack([
+        outer_points_deformed[:-1], inner_points_deformed[:-1],
+    ])
 
     out_quads = [
         [ii, ii + 1, n_outline + ii + 1, n_outline + ii]
@@ -274,11 +408,23 @@ def main(output_file_name='ISO_dogbone_2.vtk'):
          2 * n_outline - ii - 2, 2 * n_outline - ii - 1]
         for ii in range(n_outline // 2 - 1)
     ]
+    out_quads = [elm[::-1] for elm in out_quads]
 
-    mesh_out = meshio.Mesh(out_points, (('quad', out_quads),))
-    mesh_out.write(output_file_name, binary=False)
+    displacement = orig_points - out_points
 
-    plt.plot(offset_points.T[0], offset_points.T[1], '.')
+    mesh_out = meshio.Mesh(
+        out_points, (('quad', out_quads),),
+        point_data={
+            'displacement' : displacement,
+            'extrusion' : np.ones_like(out_points),
+        },
+    )
+    mesh_out.write(output_vtk_name, binary=False)
+
+    convert_to_stl(output_vtk_name, output_stl_name)
+
+    # plt.plot(out_points.T[0], out_points.T[1], ':')
+    plot_mesh(mesh_out, '--')
 
     plt.axis('equal')
     # plt.plot(pts.T[0], pts.T[1], '.-')
