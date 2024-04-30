@@ -139,7 +139,50 @@ class Quad(Element):
 
     edges = property(get_edges)
 
-    def get_iso_coors(self, global_coors):
+    def get_iso_coors(self, global_coors, maxiter=10, tol=1e-4):
+        """
+        Find the isoparametric coordinates by 2D interval splitting
+        """
+        int1, int2 = [0., 1.], [0., 1.]
+        stop1, stop2 = False, False
+        for ii in range(maxiter):
+            if not stop1:
+                # split the first
+                n1_iso, n2_iso = np.array([
+                    [.5 * sum(int1), int2[0]],
+                    [.5 * sum(int1), int2[1]],
+                ])
+                n1 = self(n1_iso, self.node_coors)[:2]
+                n2 = self(n2_iso, self.node_coors)[:2]
+                if geo.is_in_half_plane_by_pts_2d(
+                        n1[:2], n2[:2], global_coors[:2]):
+                    int1[0] = .5 * sum(int1)
+                else:
+                    int1[1] = .5 * sum(int1)
+
+                if abs(int1[1] - int1[0]) < tol:
+                    stop1 = True
+
+            if not stop2:
+                # split the second
+                n1_iso, n2_iso = np.array([
+                    [int1[0], .5 * sum(int2)],
+                    [int1[1], .5 * sum(int2)],
+                ])
+                n1 = self(n1_iso, self.node_coors)[:2]
+                n2 = self(n2_iso, self.node_coors)[:2]
+                if geo.is_in_half_plane_by_pts_2d(
+                        n1[:2], n2[:2], global_coors[:2]):
+                    int2[1] = .5 * sum(int2)
+                else:
+                    int2[0] = .5 * sum(int2)
+
+                if abs(int2[1] - int2[0]) < tol:
+                    stop2 = True
+
+        return .5 * np.array([sum(int1), sum(int2)])
+
+    def get_iso_coors_old(self, global_coors):
         def obj_fun(iso_coors):
             return np.linalg.norm(
                 global_coors[:2] - self(iso_coors, self.node_coors)[:2])
@@ -147,6 +190,8 @@ class Quad(Element):
         result = sopt.minimize(
             obj_fun,
             x0=.5 * np.ones(2),
+            # method='Nelder-Mead',
+            bounds=((0, 1), (0, 1)),
         )
         return result.x
 
