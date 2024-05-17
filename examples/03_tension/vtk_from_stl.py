@@ -2,6 +2,8 @@
 Tools for creating deformed .stl files and the corresponding .vtk meshes, both
 to be used for slicing and post-processing the resulting gcode.
 """
+import argparse
+
 import matplotlib.pyplot as plt
 import meshio
 import numpy as np
@@ -368,18 +370,22 @@ def uniform_defo_fun(coors, def_grad=None):
     return def_grad.dot(coors)
 
 def main(
+        input_stl_name='ISO_dogbone_2.stl',
         output_vtk_name='ISO_dogbone_2_defo.vtk',
         output_stl_name='ISO_dogbone_2_defo.stl',
+        deformation_gradient=None,
+        do_plots=False,
 ):
-    pts = get_outline_points()
+    pts = get_outline_points(input_stl_name)
 
     mesh = create_mesh_from_outline_points(pts)
     outline_edges = get_outline_edges(mesh)
 
     outline_path = get_path(outline_edges)
 
-    plot_mesh(mesh, 'k', linewidth=.5)
-    plot_mesh_edge_set(mesh, outline_edges, 'x--')
+    if do_plots:
+        plot_mesh(mesh, 'k', linewidth=.5)
+        plot_mesh_edge_set(mesh, outline_edges, 'x--')
 
     path_points = mesh.points[outline_path, :2]
     inner_points = path_points + offset_outline(
@@ -387,7 +393,7 @@ def main(
 
     orig_points = np.vstack([path_points[:-1], inner_points[:-1]])
 
-    defo_fun = lambda coors: uniform_defo_fun(coors, np.array([[1, 0], [.5, 1]]))
+    defo_fun = lambda coors: uniform_defo_fun(coors, deformation_gradient)
     inner_points_deformed = np.array([defo_fun(pt) for pt in inner_points])
     outer_points_deformed = inner_points_deformed + offset_outline(
         inner_points_deformed, offset=N_PERIMETERS * EXTRUSION_WIDTH)
@@ -424,12 +430,44 @@ def main(
     convert_to_stl(output_vtk_name, output_stl_name)
 
     # plt.plot(out_points.T[0], out_points.T[1], ':')
-    plot_mesh(mesh_out, '--')
+    if do_plots:
+        plot_mesh(mesh_out, '--')
 
-    plt.axis('equal')
-    # plt.plot(pts.T[0], pts.T[1], '.-')
-    plt.grid()
-    plt.show()
+        plt.axis('equal')
+        # plt.plot(pts.T[0], pts.T[1], '.-')
+        plt.grid()
+        plt.show()
+
+def parse_args():
+    parser = argparse.ArgumentParser(description=__doc__)
+
+    parser.add_argument(
+        '--input-stl',
+        metavar='INPUT_STL', dest='input_stl', help='Name of the original STL. '
+        'Only its outline at Z=0 is used. [default: %(default)s]',
+        default='ISO_dogbone_2.stl',
+    )
+    parser.add_argument(
+        metavar='OUTPUT_STL', dest='output_stl', help='Name of the output STL. '
+        'This is the deformed one to be sliced and transformed back.',
+    )
+    parser.add_argument(
+        metavar='OUTPUT_VTK', dest='output_vtk', help='Name of the output VTK. '
+        'This contains the finite element mesh with the deformation and '
+        'extrusion fields.',
+    )
+    parser.add_argument(
+        '--deformation-gradient', '-d', default=[1., 0., 0., 1.],
+        metavar='Fij', type=float, nargs=4, help='Components of the deformation'
+        ' gradient to be used to deform the shape. 2D is assumed with the '
+        'ordering [F_11, F_12, F_21, F_22]. [default: %(default)s]',
+    )
+    return parser.parse_args()
 
 if __name__ == '__main__':
-    main()
+    args = parse_args()
+    def_grad = np.array(args.deformation_gradient).reshape((2, 2))
+    main(
+        args.input_stl, args.output_vtk, args.output_stl,
+        deformation_gradient=def_grad,
+    )
