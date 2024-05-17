@@ -132,32 +132,35 @@ def parse_args():
 
 def main(
         gcode_in_filename, mesh_in_filename, gcode_out_filename,
-        mesh_offset, n_lines=None,
+        mesh_offset, n_lines=None, do_plot=False,
 ):
     gcode_in = gcode.GCode.from_file(gcode_in_filename)
     mesh_in = femfun.Mesh.from_file(
         mesh_in_filename, offset=mesh_offset,
     )
 
-    _, (ax_orig, ax_after) = plt.subplots(nrows=2, sharex=True)
-    ax_orig.axis('equal')
-    mesh_in.plot('k', ax=ax_orig, linewidth=.5)
-    gcode_in.plot('.-', ax=ax_orig)
+    if do_plot:
+        _, (ax_orig, ax_after) = plt.subplots(nrows=2, sharex=True)
+        ax_orig.axis('equal')
+        mesh_in.plot('k', ax=ax_orig, linewidth=.5)
+        gcode_in.plot('-', color='#1f77b4', ax=ax_orig)
 
     gcode_out = transform_gcode(gcode_in, mesh_in, n_lines=n_lines)
 
     gcode_out.save_as(gcode_out_filename)
 
-    ax_after.axis('equal')
-    mesh_in.plot(
-        'k', ax=ax_after,
-        displacement=mesh_in.meshdata.point_data['displacement'],
-        linewidth=.5)
-    gcode_out.plot('.-', ax=ax_after)
-    plt.show()
+    if do_plot:
+        ax_after.axis('equal')
+        mesh_in.plot(
+            'k', ax=ax_after,
+            displacement=mesh_in.meshdata.point_data['displacement'],
+            linewidth=.5)
+        gcode_out.plot('-', color='#1f77b4', ax=ax_after)
+        plt.show()
 
 if __name__ == '__main__':
     cli_args = parse_args()
+
     pr = cProfile.Profile()
     pr.enable()
 
