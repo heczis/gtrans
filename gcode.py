@@ -216,6 +216,10 @@ class Move:
 
         return out
 
+    def translate(self, dx=0., dy=0., dz=0.):
+        displacement_fun = lambda coors: coors + np.array([dx, dy, dz])
+        return self.transform(displacement_fun, split_threshold=0)
+
 class Instruction:
     def __init__(self, instruction, comment, move=None):
         self.instruction = instruction
