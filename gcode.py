@@ -331,3 +331,58 @@ class GCode:
         ])
 
         return out
+
+    def split_by_layers(
+            self,
+            layer_change_start_detect_fun=None,
+            layer_change_end_detect_fun=None,
+    ):
+        """
+        Split `self` by layer changes.
+        Return a list of `GCode` objects, each other being the layer-change
+        instructions, while the ones in between being the actual printing moves
+        of each layer.
+        """
+        if layer_change_start_detect_fun is None:
+            layer_change_start_detect_fun = lambda instruction : \
+                instruction.comment.strip().startswith('LAYER_CHANGE')
+
+        if layer_change_end_detect_fun is None:
+            layer_change_end_detect_fun = lambda instruction : \
+                instruction.comment.strip().startswith('AFTER_LAYER_CHANGE')
+
+        out = [GCode([]),]
+        layer_change_indices = []
+        layer_indices = []
+        block_number = 0
+        is_layer_change = False
+
+        for inst in self.instructions:
+            if layer_change_start_detect_fun(inst):
+                if is_layer_change:
+                    raise ValueError(
+                        'Start of layer change detected while already inside '
+                        'layer change.')
+
+                is_layer_change = True
+                out.append(GCode([inst]))
+                block_number += 1
+                layer_change_indices.append(block_number)
+                continue
+
+            if layer_change_end_detect_fun(inst):
+                if not is_layer_change:
+                    raise ValueError(
+                        'End of layer change detected without being inside '
+                        'layer change.')
+
+                out[-1].instructions.append(inst)
+                is_layer_change = False
+                out.append(GCode([]))
+                block_number += 1
+                layer_indices.append(block_number)
+                continue
+
+            out[-1].instructions.append(inst)
+
+        return out, layer_indices, layer_change_indices
