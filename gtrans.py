@@ -13,9 +13,9 @@ import femfun
 
 def transform_gcode(
         gcode_in, mesh_in,
-        output_count=25,
+        output_count=100,
         n_lines=None,
-        do_plots=False
+        do_plots=False,
 ):
     gcode_out = gcode.GCode([])
 
@@ -140,7 +140,7 @@ def main(
     )
 
     if do_plot:
-        _, (ax_orig, ax_after) = plt.subplots(nrows=2, sharex=True)
+        _, (ax_orig, ax_after) = plt.subplots(ncols=2, sharex=True)
         ax_orig.axis('equal')
         mesh_in.plot('k', ax=ax_orig, linewidth=.5)
         gcode_in.plot('-', color='#1f77b4', ax=ax_orig)
@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     main(
         cli_args.gcode_in, cli_args.mesh_in, cli_args.gcode_out,
-        cli_args.offset, n_lines=cli_args.n_lines,
+        cli_args.offset, n_lines=cli_args.n_lines, do_plot=True
     )
 
     pr.disable()
