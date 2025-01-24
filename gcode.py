@@ -311,3 +311,23 @@ class GCode:
                 out = inst.move.get_coors(1)
                 break
         return out
+
+    def translate(self, dx=0., dy=0., dz=0.):
+        """
+        Return a copy of `self` translated by the given values.
+        """
+        def translate_instruction(instruction):
+            if not instruction.move:
+                return instruction
+
+            move = instruction.move
+            new_move = move.translate(dx, dy, dz)[0]
+
+            return Instruction.from_str(str(new_move), new_move.get_coors(0))
+
+        out = GCode([
+            translate_instruction(inst)
+            for inst in self.instructions
+        ])
+
+        return out
