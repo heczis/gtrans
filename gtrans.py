@@ -6,7 +6,6 @@ import ipdb
 
 import matplotlib.pyplot as plt
 import numpy as np
-import cProfile, pstats
 
 import gcode
 import femfun
@@ -161,15 +160,7 @@ def main(
 if __name__ == '__main__':
     cli_args = parse_args()
 
-    pr = cProfile.Profile()
-    pr.enable()
-
     main(
         cli_args.gcode_in, cli_args.mesh_in, cli_args.gcode_out,
         cli_args.offset, n_lines=cli_args.n_lines, do_plot=True
     )
-
-    pr.disable()
-    stats = pstats.Stats(pr)
-    stats.sort_stats(pstats.SortKey.TIME)
-    stats.dump_stats('gtrans.prof')
